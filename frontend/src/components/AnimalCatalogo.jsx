@@ -16,6 +16,10 @@ function AnimalCatalogo() {
   const [animalSeleccionado, setAnimalSeleccionado] = useState(null);
   const [comentarios, setComentarios] = useState([]);
   const [promedio, setPromedio] = useState(null);
+  const [autor, setAutor] = useState('');
+  const [calificacion, setCalificacion] = useState(5);
+  const [comentario, setComentario] = useState('');
+  const [errorComentario, setErrorComentario] = useState(null);
 
   // Pide los animales al backend, aplicando los filtros seleccionados.
   // Se vuelve a ejecutar cada vez que cambian especieId o recintoId.
@@ -70,6 +74,40 @@ function AnimalCatalogo() {
         setPromedio(null);
       });
   }, [animalSeleccionado]);
+
+  // Envía un comentario nuevo al backend. Si la validación de Zod falla (p. ej.
+  // comentario muy corto), la API responde 400 y mostramos sus detalles.
+  const crearComentario = (e) => {
+    e.preventDefault();
+    setErrorComentario(null);
+
+    fetch(`${API_URL}/animals/${animalSeleccionado.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autor, calificacion, comentario }),
+    })
+      .then((res) =>
+        res.json().then((data) => {
+          if (!res.ok) throw data;
+          return data;
+        })
+      )
+      .then(() => {
+        setAutor('');
+        setComentario('');
+        setCalificacion(5);
+
+        return fetch(`${API_URL}/animals/${animalSeleccionado.id}/comments`).then((res) => res.json());
+      })
+      .then((data) => {
+        setComentarios(data.comentarios);
+        setPromedio(data.averageRating);
+      })
+      .catch((err) => {
+        const detalles = err?.detalles?.map((d) => d.mensaje).join(' ');
+        setErrorComentario(detalles || err?.error || 'No se pudo crear el comentario');
+      });
+  };
 
   if (cargando) return <p>Cargando animales...</p>;
   if (error) return <p>{error}</p>;
@@ -137,6 +175,34 @@ function AnimalCatalogo() {
               ))}
             </ul>
           )}
+
+          <h4>Deja tu comentario</h4>
+          <form onSubmit={crearComentario}>
+            <label>
+              Autor:{' '}
+              <input value={autor} onChange={(e) => setAutor(e.target.value)} required />
+            </label>
+            <label>
+              Calificación:{' '}
+              <select value={calificacion} onChange={(e) => setCalificacion(Number(e.target.value))}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <option key={n} value={n}>
+                    {n} ★
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Comentario:{' '}
+              <textarea
+                value={comentario}
+                onChange={(e) => setComentario(e.target.value)}
+                required
+              />
+            </label>
+            {errorComentario && <p style={{ color: 'red' }}>{errorComentario}</p>}
+            <button type="submit">Agregar comentario</button>
+          </form>
         </div>
       )}
     </div>
