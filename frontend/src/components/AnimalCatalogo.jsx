@@ -13,6 +13,9 @@ function AnimalCatalogo() {
   const [recintoId, setRecintoId] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+  const [animalSeleccionado, setAnimalSeleccionado] = useState(null);
+  const [comentarios, setComentarios] = useState([]);
+  const [promedio, setPromedio] = useState(null);
 
   // Pide los animales al backend, aplicando los filtros seleccionados.
   // Se vuelve a ejecutar cada vez que cambian especieId o recintoId.
@@ -48,6 +51,25 @@ function AnimalCatalogo() {
       .then(setRecintos)
       .catch(() => {});
   }, []);
+
+  // Cuando se selecciona un animal, pide su detalle de comentarios al backend.
+  useEffect(() => {
+    if (!animalSeleccionado) return;
+
+    fetch(`${API_URL}/animals/${animalSeleccionado.id}/comments`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Error al cargar los comentarios');
+        return res.json();
+      })
+      .then((data) => {
+        setComentarios(data.comentarios);
+        setPromedio(data.averageRating);
+      })
+      .catch(() => {
+        setComentarios([]);
+        setPromedio(null);
+      });
+  }, [animalSeleccionado]);
 
   if (cargando) return <p>Cargando animales...</p>;
   if (error) return <p>{error}</p>;
@@ -85,10 +107,38 @@ function AnimalCatalogo() {
       <ul>
         {animales.map((animal) => (
           <li key={animal.id}>
-            {animal.nombre} — {animal.edad} años — {animal.especie?.nombre} ({animal.recinto?.nombre})
+            <button type="button" onClick={() => setAnimalSeleccionado(animal)}>
+              {animal.nombre} — {animal.edad} años — {animal.especie?.nombre} ({animal.recinto?.nombre})
+            </button>
           </li>
         ))}
       </ul>
+
+      {animalSeleccionado && (
+        <div>
+          <h3>Detalle de {animalSeleccionado.nombre}</h3>
+          <p>
+            Especie: {animalSeleccionado.especie?.nombre} — Recinto: {animalSeleccionado.recinto?.nombre}
+          </p>
+          <p>
+            Edad: {animalSeleccionado.edad} años — Peso: {animalSeleccionado.peso ?? 'No registrado'} kg —{' '}
+            {animalSeleccionado.disponible ? 'Disponible' : 'No disponible'}
+          </p>
+
+          <h4>Comentarios {promedio !== null ? `(promedio: ${promedio.toFixed(1)}★)` : ''}</h4>
+          {comentarios.length === 0 ? (
+            <p>Sin comentarios todavía.</p>
+          ) : (
+            <ul>
+              {comentarios.map((item) => (
+                <li key={item.id}>
+                  <strong>{item.autor}</strong> ({'★'.repeat(item.calificacion)}) — {item.comentario}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
